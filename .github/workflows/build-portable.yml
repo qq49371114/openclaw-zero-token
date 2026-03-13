@@ -1,0 +1,55 @@
+name: 🚀 龙虾打包机 - 一键生成免安装桌面版
+on: 
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 🛠️ 准备 Node 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 📦 安装依赖并编译
+        run: |
+          npm install -g pnpm
+          pnpm install
+          pnpm build
+          pnpm ui:build
+
+      - name: 🏗️ 制作绿色版全家桶
+        run: |
+          mkdir OpenClaw-Zero-Token
+          xcopy /E /I dist OpenClaw-Zero-Token\dist
+          xcopy /E /I ui\dist OpenClaw-Zero-Token\ui\dist
+          copy openclaw.mjs OpenClaw-Zero-Token\
+          copy package.json OpenClaw-Zero-Token\
+          copy .openclaw-state.example OpenClaw-Zero-Token\.openclaw-state.example
+          copy "$((Get-Command node).Source)" OpenClaw-Zero-Token
+ode.exe
+          
+      - name: 📝 写入一键启动脚本
+        shell: pwsh
+        run: |
+          $script = @"
+          @echo off
+          title OpenClaw Zero Token - Portable
+          echo 正在启动免 Token 小龙虾...
+          .
+ode.exe openclaw.mjs server start
+          "@
+          $script | Out-File -FilePath "OpenClaw-Zero-Token\双击我启动.bat" -Encoding ascii
+
+      - name: 🎁 打包成压缩包
+        run: |
+          Compress-Archive -Path OpenClaw-Zero-Token -DestinationPath OpenClaw-Zero-Token-Windows-x64.zip
+
+      - name: 📤 发布成品
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenClaw-Zero-Token-绿色免安装版
+          path: OpenClaw-Zero-Token-Windows-x64.zip
