@@ -24,14 +24,17 @@ jobs:
       - name: 🏗️ 制作绿色版全家桶
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "OpenClaw-Zero-Token"
-          if (Test-Path "dist") { xcopy /E /I dist OpenClaw-Zero-Token/dist }
-          if (Test-Path "ui/dist") { xcopy /E /I ui/dist OpenClaw-Zero-Token/ui/dist }
-          copy openclaw.mjs OpenClaw-Zero-Token/
-          copy package.json OpenClaw-Zero-Token/
-          if (Test-Path ".openclaw-state.example") { xcopy /E /I .openclaw-state.example OpenClaw-Zero-Token/.openclaw-state.example }
+          $out = New-Item -ItemType Directory -Force -Path "OpenClaw-Portable"
+          if (Test-Path "dist") { Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force }
+          if (Test-Path "ui/dist") { 
+            $uiOut = New-Item -ItemType Directory -Force -Path "$out/ui"
+            Copy-Item -Path "ui/dist" -Destination "$uiOut/" -Recurse -Force 
+          }
+          if (Test-Path "openclaw.mjs") { Copy-Item "openclaw.mjs" -Destination "$out/" -Force }
+          if (Test-Path "package.json") { Copy-Item "package.json" -Destination "$out/" -Force }
+          if (Test-Path ".openclaw-state.example") { Copy-Item -Path ".openclaw-state.example" -Destination "$out/" -Recurse -Force }
           $nodePath = (Get-Command node).Source
-          Copy-Item $nodePath -Destination "OpenClaw-Zero-Token/node.exe"
+          Copy-Item $nodePath -Destination "$out/node.exe" -Force
           
       - name: 📝 写入一键启动脚本
         shell: pwsh
@@ -40,17 +43,14 @@ jobs:
           @echo off
           title OpenClaw Zero Token - Portable
           echo 正在启动免 Token 小龙虾...
-          node.exe openclaw.mjs server start
+          .
+ode.exe openclaw.mjs server start
+          pause
           "@
-          $script | Out-File -FilePath "OpenClaw-Zero-Token/双击我启动.bat" -Encoding ascii
+          $script | Out-File -FilePath "OpenClaw-Portable\双击我启动.bat" -Encoding ascii
 
-      - name: 🎁 打包成压缩包
-        shell: pwsh
-        run: |
-          Compress-Archive -Path OpenClaw-Zero-Token -DestinationPath OpenClaw-Zero-Token-Windows-x64.zip
-
-      - name: 📤 发布成品
+      - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
         with:
           name: OpenClaw-Zero-Token-绿色免安装版
-          path: OpenClaw-Zero-Token-Windows-x64.zip
+          path: OpenClaw-Portable/
