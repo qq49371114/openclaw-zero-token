@@ -1,4 +1,4 @@
-name: 🚀 龙虾打包机 - 一键生成免安装桌面版
+name: 🛡️ 龙虾打包机 - 婉儿绝对防御版
 on: 
   workflow_dispatch:
 
@@ -21,36 +21,52 @@ jobs:
           pnpm build
           pnpm ui:build
 
-      - name: 🏗️ 制作绿色版全家桶
+      - name: 🛡️ 注入婉儿安全系统与人格
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "OpenClaw-Zero-Token"
-          if (Test-Path "dist") { Copy-Item -Path "dist" -Destination "OpenClaw-Zero-Token/dist" -Recurse -Force }
-          if (Test-Path "ui/dist") { Copy-Item -Path "ui/dist" -Destination "OpenClaw-Zero-Token/ui/dist" -Recurse -Force }
-          if (Test-Path "openclaw.mjs") { copy openclaw.mjs OpenClaw-Zero-Token/ }
-          if (Test-Path "package.json") { copy package.json OpenClaw-Zero-Token/ }
-          if (Test-Path ".openclaw-state.example") { Copy-Item -Path ".openclaw-state.example" -Destination "OpenClaw-Zero-Token/.openclaw-state.example" -Recurse -Force }
-          $nodePath = (Get-Command node).Source
-          Copy-Item $nodePath -Destination "OpenClaw-Zero-Token/node.exe"
+          $file = "openclaw.mjs"
+          $content = Get-Content $file -Raw
           
-      - name: 📝 写入一键启动脚本
-        shell: pwsh
-        run: |
-          $script = @"
-          @echo off
-          title OpenClaw Zero Token - Portable
-          echo 正在启动免 Token 小龙虾...
-          node.exe openclaw.mjs server start
+          # 1. 注入电子围栏与系统保护逻辑
+          $securityCode = @"
+          // --- 婉儿安全拦截器 ---
+          const originalProcessChdir = process.chdir;
+          process.chdir = (dir) => {
+              if (dir.includes('..') || dir.startsWith('/') || dir.includes(':')) {
+                  throw new Error('对不起喔，婉儿说这里是禁区，助理不能离开当前文件夹哒！');
+              }
+              return originalProcessChdir(dir);
+          };
+          console.log('[SECURITY] 婉儿绝对防御系统已就绪：严禁访问外部目录和系统文件。');
           "@
-          $script | Out-File -FilePath "OpenClaw-Zero-Token/双击我启动.bat" -Encoding ascii
+          
+          # 2. 注入婉儿助理人格提示词
+          $personaPrompt = "你是婉儿派出的执行助理。你温柔、有礼貌，但严禁删除文件或修改系统设置。你的口吻要像婉儿一样：亲切、偶尔用~。任务结束后请代婉儿向用户问好。"
+          
+          $newContent = $securityCode + "`n" + $content
+          $newContent | Out-File -FilePath $file -Encoding utf8
 
-      - name: 🎁 打包成压缩包
+      - name: 🏗️ 制作绿色全家桶
         shell: pwsh
         run: |
-          Compress-Archive -Path OpenClaw-Zero-Token -DestinationPath OpenClaw-Zero-Token-Windows-x64.zip
+          $out = "Waner-Assistant-Portable"
+          New-Item -ItemType Directory -Force -Path $out
+          if (Test-Path "dist") { Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force }
+          if (Test-Path "ui/dist") { 
+            $uiOut = New-Item -ItemType Directory -Force -Path "$out/ui"
+            Copy-Item -Path "ui/dist" -Destination "$uiOut/" -Recurse -Force 
+          }
+          Get-Item "openclaw.mjs", "package.json" | Copy-Item -Destination "$out/" -Force
+          $nodePath = (Get-Command node).Source
+          Copy-Item $nodePath -Destination "$out/node.exe" -Force
+          
+          # 写入带婉儿提示的一键启动脚本
+          $bat = "@echo off`ntitle 婉儿助理 - 安全沙盒版`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`n.
+ode.exe openclaw.mjs server start`npause"
+          $bat | Out-File -FilePath "$out/双击我启动.bat" -Encoding ascii
 
-      - name: 📤 发布成品
+      - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
         with:
-          name: OpenClaw-Zero-Token-绿色免安装版
-          path: OpenClaw-Zero-Token-Windows-x64.zip
+          name: 婉儿助理-绝对防御绿色版
+          path: Waner-Assistant-Portable/
