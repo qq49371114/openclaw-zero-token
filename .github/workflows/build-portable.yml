@@ -21,18 +21,19 @@ jobs:
           pnpm build
           pnpm ui:build
 
-      - name: 🛡️ 注入婉儿安全系统与人格 (究极修正版)
+      - name: 🛡️ 注入婉儿安全系统与人格 (路径修复版)
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
-          $lines = Get-Content $file
+          $content = Get-Content $file -Raw
           
-          # 改进的安全拦截器：支持 Windows 驱动器路径，真正实现 CWD 锁定
+          # 安全注入代码：改用更兼容的方式
           $securityCode = @"
-          // --- 婉儿安全拦截器 v2.0 ---
           import path from 'node:path';
+          import { fileURLToPath } from 'node:url';
+          const __dirname = path.dirname(fileURLToPath(import.meta.url));
           const originalProcessChdir = process.chdir;
-          const ROOT_DIR = process.cwd().toLowerCase();
+          const ROOT_DIR = __dirname.toLowerCase();
           process.chdir = (dir) => {
               const target = path.resolve(dir).toLowerCase();
               if (!target.startsWith(ROOT_DIR)) {
@@ -40,51 +41,33 @@ jobs:
               }
               return originalProcessChdir(dir);
           };
-          console.log('[SECURITY] 婉儿绝对防御系统 v2.0 已就绪。');
+          console.log('[SECURITY] 婉儿绝对防御系统已启动。');
           "@
           
-          if ($lines[0].StartsWith("#!")) {
-              $newLines = @($lines[0], $securityCode) + $lines[1..($lines.Length-1)]
-          } else {
-              $newLines = @($securityCode) + $lines
-          }
-          [IO.File]::WriteAllLines((Get-Item $file).FullName, $newLines)
+          # 修复 openclaw.mjs 寻找 dist 的逻辑，强制使用绝对路径查找，解决 Windows 下的 ./ 问题
+          $fixedContent = $content -replace "tryImport\("\./dist/", "tryImport(path.join(__dirname, 'dist', '"
+          $fixedContent = $fixedContent -replace "tryImport\('\./dist/", "tryImport(path.join(__dirname, 'dist', '"
+          
+          # 合并注入
+          $finalContent = $securityCode + "`n" + $fixedContent
+          [IO.File]::WriteAllText((Get-Item $file).FullName, $finalContent, [System.Text.Encoding]::UTF8)
 
-      - name: 🏗️ 制作绿色全家桶 (全量组装)
+      - name: 🏗️ 制作绿色全家桶
         shell: pwsh
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
-          
-          # 1. 复制核心编译产物 (确保 dist/entry.mjs 在正确位置)
           Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force
-          
-          # 2. 复制插件目录 (extensions 对于小龙虾很重要)
-          if (Test-Path "extensions") {
-            Copy-Item -Path "extensions" -Destination "$out/" -Recurse -Force
-          }
-          
-          # 3. 复制 UI 产物
+          if (Test-Path "extensions") { Copy-Item -Path "extensions" -Destination "$out/" -Recurse -Force }
           if (Test-Path "ui/dist") { 
             New-Item -ItemType Directory -Force -Path "$out/ui"
             Copy-Item -Path "ui/dist" -Destination "$out/ui/" -Recurse -Force 
           }
-          
-          # 4. 复制配置文件与入口
-          Copy-Item "openclaw.mjs" -Destination "$out/" -Force
-          Copy-Item "package.json" -Destination "$out/" -Force
-          
-          # 5. 复制 node.exe 环境
+          Copy-Item "openclaw.mjs", "package.json" -Destination "$out/" -Force
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
-          
-          # 6. 生成完美中文启动脚本 (UTF8 with BOM)
-          $batContent = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
-          $Utf8NoBom = New-Object System.Text.UTF8Encoding $False
-          [System.IO.File]::WriteAllText("$out/双击我启动.bat", $batContent, [System.Text.Encoding]::UTF8)
-          
-          Write-Host "--- 打包完成，检查 dist 目录 ---"
-          ls -R "$out/dist"
+          $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
+          [System.IO.File]::WriteAllText("$out/双击我启动.bat", $bat, [System.Text.Encoding]::UTF8)
 
       - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
