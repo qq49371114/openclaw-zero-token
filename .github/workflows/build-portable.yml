@@ -22,7 +22,7 @@ jobs:
           pnpm ui:build
           pnpm prune --prod
 
-      - name: 🛡️ 注入婉儿安全系统与人格
+      - name: 🛡️ 注入婉儿安全系统与人格 (Shebang修复版)
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
@@ -41,35 +41,38 @@ jobs:
           };
           console.log('[SECURITY] 婉儿绝对防御系统已启动。');
           "@
-          $content = Get-Content $file -Raw
-          $fixedContent = $content.Replace('import("./dist/', "import(path.join(__dirname, 'dist', '").Replace("import('./dist/", "import(path.join(__dirname, 'dist', '")
-          $finalContent = $securityCode + "`n" + $fixedContent
-          [IO.File]::WriteAllText((Get-Item $file).FullName, $finalContent, [System.Text.Encoding]::UTF8)
 
-      - name: 🏗️ 制作绿色全家桶 (全量打包 - Robocopy版)
+          $lines = Get-Content $file
+          $newContent = ""
+          
+          # 关键修复：检查第一行是否是 Shebang
+          if ($lines[0].StartsWith("#!")) {
+              # 保留 Shebang 在第一行，随后注入安全代码
+              $newContent = @($lines[0], $securityCode) + $lines[1..($lines.Length-1)]
+          } else {
+              # 没有 Shebang，安全代码放最前面
+              $newContent = @($securityCode) + $lines
+          }
+          
+          # 执行路径修复替换
+          $finalString = ($newContent -join "`n").Replace('import("./dist/', "import(path.join(__dirname, 'dist', '").Replace("import('./dist/", "import(path.join(__dirname, 'dist', '")
+          
+          [IO.File]::WriteAllText((Get-Item $file).FullName, $finalString, [System.Text.Encoding]::UTF8)
+
+      - name: 🏗️ 制作绿色全家桶 (全量打包)
         shell: pwsh
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
-          
-          # 使用 robocopy 搬运，它比 Copy-Item 强壮得多，尤其处理 node_modules 的深层路径
-          # /E 复制子目录，/MT:32 开启多线程加速，/NFL /NDL 减少日志
-          # 注意：robocopy 成功时的退出码不是 0，所以加 || exit 0
-          robocopy dist "$out/dist" /E /NFL /NDL /MT:32
-          robocopy node_modules "$out/node_modules" /E /NFL /NDL /MT:32
-          if (Test-Path "extensions") { robocopy extensions "$out/extensions" /E /NFL /NDL /MT:32 }
-          if (Test-Path "ui/dist") { robocopy ui/dist "$out/ui/dist" /E /NFL /NDL /MT:32 }
-          
-          # 搬运单体文件
+          robocopy dist "$out/dist" /E /NFL /NDL /MT:32 /R:0 /W:0
+          robocopy node_modules "$out/node_modules" /E /NFL /NDL /MT:32 /R:0 /W:0
+          if (Test-Path "extensions") { robocopy extensions "$out/extensions" /E /NFL /NDL /MT:32 /R:0 /W:0 }
+          if (Test-Path "ui/dist") { robocopy ui/dist "$out/ui/dist" /E /NFL /NDL /MT:32 /R:0 /W:0 }
           Copy-Item "openclaw.mjs", "package.json" -Destination "$out/" -Force
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
-          
-          # 生成启动脚本
           $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
           [System.IO.File]::WriteAllText("$out/双击我启动.bat", $bat, [System.Text.Encoding]::UTF8)
-          
-          Write-Host "打包成功！"
           exit 0
 
       - name: 🎁 发布成品
