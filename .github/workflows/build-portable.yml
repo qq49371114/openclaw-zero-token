@@ -1,4 +1,4 @@
-name: 🛡️ 龙虾打包机 - 婉儿究极稳定版
+name: 🛡️ 龙虾打包机 - 婉儿究极全量版
 on: 
   workflow_dispatch:
 
@@ -20,18 +20,21 @@ jobs:
           pnpm install
           pnpm build
           pnpm ui:build
+          # 仅保留生产环境依赖，大幅减小体积但保证能跑
+          pnpm prune --prod
 
-      - name: 🛡️ 注入婉儿安全系统与人格 (路径修复版)
+      - name: 🛡️ 注入婉儿安全系统与人格 (最终整合版)
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
           $content = Get-Content $file -Raw
           
-          # 安全注入代码：改用更兼容的方式
           $securityCode = @"
           import path from 'node:path';
           import { fileURLToPath } from 'node:url';
           const __dirname = path.dirname(fileURLToPath(import.meta.url));
+          
+          // --- 婉儿安全拦截器 ---
           const originalProcessChdir = process.chdir;
           const ROOT_DIR = __dirname.toLowerCase();
           process.chdir = (dir) => {
@@ -44,33 +47,37 @@ jobs:
           console.log('[SECURITY] 婉儿绝对防御系统已启动。');
           "@
           
-          # 修复 openclaw.mjs 寻找 dist 的逻辑，强制使用绝对路径查找，解决 Windows 下的 ./ 问题
-          $fixedContent = $content -replace "tryImport\("\./dist/", "tryImport(path.join(__dirname, 'dist', '"
-          $fixedContent = $fixedContent -replace "tryImport\('\./dist/", "tryImport(path.join(__dirname, 'dist', '"
+          # 修正所有相对路径 import 为绝对路径
+          $fixedContent = $content -replace "import\("\./dist/", "import(path.join(__dirname, 'dist', '"
+          $fixedContent = $fixedContent -replace "import\('\./dist/", "import(path.join(__dirname, 'dist', '"
           
-          # 合并注入
           $finalContent = $securityCode + "`n" + $fixedContent
           [IO.File]::WriteAllText((Get-Item $file).FullName, $finalContent, [System.Text.Encoding]::UTF8)
 
-      - name: 🏗️ 制作绿色全家桶
+      - name: 🏗️ 制作绿色全家桶 (全量打包)
         shell: pwsh
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
+          
+          # 复制核心产物
           Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force
+          Copy-Item -Path "node_modules" -Destination "$out/" -Recurse -Force
           if (Test-Path "extensions") { Copy-Item -Path "extensions" -Destination "$out/" -Recurse -Force }
-          if (Test-Path "ui/dist") { 
-            New-Item -ItemType Directory -Force -Path "$out/ui"
-            Copy-Item -Path "ui/dist" -Destination "$out/ui/" -Recurse -Force 
-          }
+          
+          # 复制入口和配置
           Copy-Item "openclaw.mjs", "package.json" -Destination "$out/" -Force
+          
+          # 复制运行环境
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
+          
+          # 启动脚本
           $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
           [System.IO.File]::WriteAllText("$out/双击我启动.bat", $bat, [System.Text.Encoding]::UTF8)
 
       - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
         with:
-          name: 婉儿助理-究极稳定版
+          name: 婉儿助理-究极全量版
           path: Waner-Assistant-Portable/
