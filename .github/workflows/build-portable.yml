@@ -27,7 +27,6 @@ jobs:
           $file = "openclaw.mjs"
           $lines = Get-Content $file
           
-          # 安全注入代码
           $securityCode = @"
           // --- 婉儿安全拦截器 ---
           const originalProcessChdir = process.chdir;
@@ -40,7 +39,6 @@ jobs:
           console.log('[SECURITY] 婉儿绝对防御系统已就绪：禁止访问外部目录。');
           "@
           
-          # 检查是否有 shebang，确保注入在正确位置
           if ($lines[0].StartsWith("#!")) {
               $newLines = @($lines[0], $securityCode) + $lines[1..($lines.Length-1)]
           } else {
@@ -53,25 +51,19 @@ jobs:
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
-          
-          # 复制 dist 和 ui/dist 到正确位置
           if (Test-Path "dist") { Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force }
           if (Test-Path "ui/dist") { 
             New-Item -ItemType Directory -Force -Path "$out/ui"
             Copy-Item -Path "ui/dist" -Destination "$out/ui/" -Recurse -Force 
           }
-          
-          # 复制核心文件
           Copy-Item "openclaw.mjs" -Destination "$out/" -Force
           Copy-Item "package.json" -Destination "$out/" -Force
-          
-          # 复制 node.exe
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
           
-          # 写入带婉儿提示的一键启动脚本 (修复了 .node.exe 的错误)
-          $bat = "@echo off`ntitle 婉儿助理 - 安全沙盒版`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`nnode.exe openclaw.mjs server start`npause"
-          $bat | Out-File -FilePath "$out/双击我启动.bat" -Encoding ascii
+          # 修复乱码：添加 chcp 65001 切换到 UTF-8 编码，并使用 UTF8 编码保存文件
+          $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 安全沙盒版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
+          $bat | Out-File -FilePath "$out/双击我启动.bat" -Encoding utf8
 
       - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
