@@ -20,15 +20,14 @@ jobs:
           pnpm install
           pnpm build
           pnpm ui:build
-          # 仅保留生产环境依赖，大幅减小体积但保证能跑
           pnpm prune --prod
 
-      - name: 🛡️ 注入婉儿安全系统与人格 (最终整合版)
+      - name: 🛡️ 注入婉儿安全系统与人格 (极简修正版)
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
-          $content = Get-Content $file -Raw
           
+          # 安全注入代码：使用简单的字符串拼接，避免正则转义错误
           $securityCode = @"
           import path from 'node:path';
           import { fileURLToPath } from 'node:url';
@@ -47,9 +46,10 @@ jobs:
           console.log('[SECURITY] 婉儿绝对防御系统已启动。');
           "@
           
-          # 修正所有相对路径 import 为绝对路径
-          $fixedContent = $content -replace "import\("\./dist/", "import(path.join(__dirname, 'dist', '"
-          $fixedContent = $fixedContent -replace "import\('\./dist/", "import(path.join(__dirname, 'dist', '"
+          $content = Get-Content $file -Raw
+          # 修正相对路径 import (仅针对特定的 entry 加载逻辑)
+          $fixedContent = $content.Replace('import("./dist/', "import(path.join(__dirname, 'dist', '")
+          $fixedContent = $fixedContent.Replace("import('./dist/", "import(path.join(__dirname, 'dist', '")
           
           $finalContent = $securityCode + "`n" + $fixedContent
           [IO.File]::WriteAllText((Get-Item $file).FullName, $finalContent, [System.Text.Encoding]::UTF8)
@@ -59,20 +59,12 @@ jobs:
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
-          
-          # 复制核心产物
           Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force
           Copy-Item -Path "node_modules" -Destination "$out/" -Recurse -Force
           if (Test-Path "extensions") { Copy-Item -Path "extensions" -Destination "$out/" -Recurse -Force }
-          
-          # 复制入口和配置
           Copy-Item "openclaw.mjs", "package.json" -Destination "$out/" -Force
-          
-          # 复制运行环境
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
-          
-          # 启动脚本
           $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
           [System.IO.File]::WriteAllText("$out/双击我启动.bat", $bat, [System.Text.Encoding]::UTF8)
 
