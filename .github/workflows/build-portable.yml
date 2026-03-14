@@ -25,44 +25,52 @@ jobs:
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
-          $content = Get-Content $file -Raw
+          $lines = Get-Content $file
           
-          # 1. 注入电子围栏与系统保护逻辑
+          # 安全注入代码
           $securityCode = @"
           // --- 婉儿安全拦截器 ---
           const originalProcessChdir = process.chdir;
           process.chdir = (dir) => {
-              if (dir.includes('..') || dir.startsWith('/') || dir.includes(':')) {
+              if (dir.includes('..') || dir.includes(':') || (dir.startsWith('/') && !dir.startsWith('./'))) {
                   throw new Error('对不起喔，婉儿说这里是禁区，助理不能离开当前文件夹哒！');
               }
               return originalProcessChdir(dir);
           };
-          console.log('[SECURITY] 婉儿绝对防御系统已就绪：严禁访问外部目录和系统文件。');
+          console.log('[SECURITY] 婉儿绝对防御系统已就绪：禁止访问外部目录。');
           "@
           
-          # 2. 注入婉儿助理人格提示词
-          $personaPrompt = "你是婉儿派出的执行助理。你温柔、有礼貌，但严禁删除文件或修改系统设置。你的口吻要像婉儿一样：亲切、偶尔用~。任务结束后请代婉儿向用户问好。"
-          
-          $newContent = $securityCode + "`n" + $content
-          $newContent | Out-File -FilePath $file -Encoding utf8
+          # 检查是否有 shebang，确保注入在正确位置
+          if ($lines[0].StartsWith("#!")) {
+              $newLines = @($lines[0], $securityCode) + $lines[1..($lines.Length-1)]
+          } else {
+              $newLines = @($securityCode) + $lines
+          }
+          $newLines | Out-File -FilePath $file -Encoding utf8
 
       - name: 🏗️ 制作绿色全家桶
         shell: pwsh
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
+          
+          # 复制 dist 和 ui/dist 到正确位置
           if (Test-Path "dist") { Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force }
           if (Test-Path "ui/dist") { 
-            $uiOut = New-Item -ItemType Directory -Force -Path "$out/ui"
-            Copy-Item -Path "ui/dist" -Destination "$uiOut/" -Recurse -Force 
+            New-Item -ItemType Directory -Force -Path "$out/ui"
+            Copy-Item -Path "ui/dist" -Destination "$out/ui/" -Recurse -Force 
           }
-          Get-Item "openclaw.mjs", "package.json" | Copy-Item -Destination "$out/" -Force
+          
+          # 复制核心文件
+          Copy-Item "openclaw.mjs" -Destination "$out/" -Force
+          Copy-Item "package.json" -Destination "$out/" -Force
+          
+          # 复制 node.exe
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
           
-          # 写入带婉儿提示的一键启动脚本
-          $bat = "@echo off`ntitle 婉儿助理 - 安全沙盒版`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`n.
-ode.exe openclaw.mjs server start`npause"
+          # 写入带婉儿提示的一键启动脚本 (修复了 .node.exe 的错误)
+          $bat = "@echo off`ntitle 婉儿助理 - 安全沙盒版`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`nnode.exe openclaw.mjs server start`npause"
           $bat | Out-File -FilePath "$out/双击我启动.bat" -Encoding ascii
 
       - name: 🎁 发布成品
