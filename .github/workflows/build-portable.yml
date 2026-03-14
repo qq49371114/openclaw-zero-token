@@ -1,4 +1,4 @@
-name: 🛡️ 龙虾打包机 - 婉儿绝对防御版
+name: 🛡️ 龙虾打包机 - 婉儿究极稳定版
 on: 
   workflow_dispatch:
 
@@ -14,33 +14,33 @@ jobs:
         with:
           node-version: 22
 
-      - name: 📦 安装依赖并编译
+      - name: 📦 安装依赖并全量编译
         run: |
           npm install -g pnpm
           pnpm install
           pnpm build
           pnpm ui:build
 
-      - name: 🛡️ 注入婉儿安全系统与人格
+      - name: 🛡️ 注入婉儿安全系统与人格 (究极修正版)
         shell: pwsh
         run: |
           $file = "openclaw.mjs"
           $lines = Get-Content $file
           
-          # 改进的安全拦截器：支持 Windows 路径，仅限制跨出根目录的操作
+          # 改进的安全拦截器：支持 Windows 驱动器路径，真正实现 CWD 锁定
           $securityCode = @"
-          // --- 婉儿安全拦截器 ---
+          // --- 婉儿安全拦截器 v2.0 ---
           import path from 'node:path';
           const originalProcessChdir = process.chdir;
-          const ROOT_DIR = process.cwd();
+          const ROOT_DIR = process.cwd().toLowerCase();
           process.chdir = (dir) => {
-              const target = path.resolve(dir);
+              const target = path.resolve(dir).toLowerCase();
               if (!target.startsWith(ROOT_DIR)) {
                   throw new Error('对不起喔，婉儿说这里是禁区，助理不能离开当前文件夹哒！');
               }
               return originalProcessChdir(dir);
           };
-          console.log('[SECURITY] 婉儿绝对防御系统已就绪。');
+          console.log('[SECURITY] 婉儿绝对防御系统 v2.0 已就绪。');
           "@
           
           if ($lines[0].StartsWith("#!")) {
@@ -50,44 +50,44 @@ jobs:
           }
           [IO.File]::WriteAllLines((Get-Item $file).FullName, $newLines)
 
-      - name: 🏗️ 制作绿色全家桶
+      - name: 🏗️ 制作绿色全家桶 (全量组装)
         shell: pwsh
         run: |
           $out = "Waner-Assistant-Portable"
           New-Item -ItemType Directory -Force -Path $out
           
-          # 显式复制 dist 文件夹及其内容
-          if (Test-Path "dist") {
-              $targetDist = New-Item -ItemType Directory -Force -Path "$out/dist"
-              Copy-Item -Path "dist/*" -Destination $targetDist -Recurse -Force
-          } else {
-              Write-Error "错误：未发现 dist 编译产物！"
-              exit 1
+          # 1. 复制核心编译产物 (确保 dist/entry.mjs 在正确位置)
+          Copy-Item -Path "dist" -Destination "$out/" -Recurse -Force
+          
+          # 2. 复制插件目录 (extensions 对于小龙虾很重要)
+          if (Test-Path "extensions") {
+            Copy-Item -Path "extensions" -Destination "$out/" -Recurse -Force
           }
           
-          # 复制 UI 产物
+          # 3. 复制 UI 产物
           if (Test-Path "ui/dist") { 
-            $uiOut = New-Item -ItemType Directory -Force -Path "$out/ui/dist"
-            Copy-Item -Path "ui/dist/*" -Destination $uiOut -Recurse -Force 
+            New-Item -ItemType Directory -Force -Path "$out/ui"
+            Copy-Item -Path "ui/dist" -Destination "$out/ui/" -Recurse -Force 
           }
           
-          # 复制核心入口
+          # 4. 复制配置文件与入口
           Copy-Item "openclaw.mjs" -Destination "$out/" -Force
           Copy-Item "package.json" -Destination "$out/" -Force
           
-          # 复制 node.exe
+          # 5. 复制 node.exe 环境
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
           
-          # 写入带婉儿提示的一键启动脚本
-          $batContent = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 安全沙盒版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
+          # 6. 生成完美中文启动脚本 (UTF8 with BOM)
+          $batContent = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 究极安全版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
+          $Utf8NoBom = New-Object System.Text.UTF8Encoding $False
           [System.IO.File]::WriteAllText("$out/双击我启动.bat", $batContent, [System.Text.Encoding]::UTF8)
           
-          # 验证文件结构 (调试用)
-          ls -R $out
+          Write-Host "--- 打包完成，检查 dist 目录 ---"
+          ls -R "$out/dist"
 
       - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
         with:
-          name: 婉儿助理-绝对防御绿色版
+          name: 婉儿助理-究极稳定版
           path: Waner-Assistant-Portable/
