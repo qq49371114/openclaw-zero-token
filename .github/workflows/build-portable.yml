@@ -44,7 +44,7 @@ jobs:
           } else {
               $newLines = @($securityCode) + $lines
           }
-          $newLines | Out-File -FilePath $file -Encoding utf8
+          [IO.File]::WriteAllLines((Get-Item $file).FullName, $newLines)
 
       - name: 🏗️ 制作绿色全家桶
         shell: pwsh
@@ -61,9 +61,12 @@ jobs:
           $nodePath = (Get-Command node).Source
           Copy-Item $nodePath -Destination "$out/node.exe" -Force
           
-          # 修复乱码：添加 chcp 65001 切换到 UTF-8 编码，并使用 UTF8 编码保存文件
-          $bat = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 安全沙盒版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
-          $bat | Out-File -FilePath "$out/双击我启动.bat" -Encoding utf8
+          # 制作【完美中文版】启动脚本
+          # 使用 `r`n 确保 Windows 换行符，chcp 65001 切换代码页
+          $batContent = "@echo off`r`nchcp 65001 > nul`r`ntitle 婉儿助理 - 安全沙盒版`r`necho [婉儿温馨提示] 助理已上线，我会保护好你的电脑安全喔~`r`nnode.exe openclaw.mjs server start`r`npause"
+          
+          # 使用特定编码写入，确保 CMD 能够识别
+          [System.IO.File]::WriteAllText("$out/双击我启动.bat", $batContent, [System.Text.Encoding]::UTF8)
 
       - name: 🎁 发布成品
         uses: actions/upload-artifact@v4
